@@ -10,8 +10,27 @@ if not os.path.exists(DATA_FILE):
 
 st.set_page_config(page_title="2026 남북한 사회통합사례 발표대회", page_icon="🏆", layout="centered")
 
-# HTML/CSS를 이용해 제목 크기를 화면에 딱 맞게 한 줄로 조절
-st.markdown("<h2 style='text-align: center;'>🏆 2026 남북한 사회통합사례 발표대회</h2>", unsafe_allow_html=True)
+# 모바일 화면 크기에 맞춰 제목이 한 줄로 나오게 하고, 점수 버튼이 줄바꿈 안 되게 강제 조정하는 CSS
+st.markdown("""
+    <style>
+    /* 제목 크기 모바일 최적화 */
+    h3 {
+        font-size: 1.3rem !important;
+        text-align: center;
+        white-space: nowrap;
+    }
+    /* 라디오 버튼(점수)들을 줄바꿈 없이 가로로 나열 */
+    div.row-widget.stRadio > div {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    div.row-widget.stRadio > div > label {
+        margin-right: 8px !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown("<h3 style='text-align: center;'>🏆 2026 남북한 사회통합사례 발표대회</h3>", unsafe_allow_html=True)
 st.write("")
 
 tab1, tab2 = st.tabs(["심사위원용", "주최측 관리자용"])
