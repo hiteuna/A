@@ -7,7 +7,6 @@ ADMIN_PASSWORD = "123"
 
 st.set_page_config(page_title="2026 발표대회", layout="centered")
 
-# CSS: 제목 정렬 및 모바일 최적화
 st.markdown("""
     <style>
     h3 { font-size: 1.3rem !important; text-align: center; }
@@ -17,15 +16,19 @@ st.markdown("""
 
 st.markdown("### 🏆 2026 남북한 사회통합사례 발표대회")
 
-# 고유 ID 생성 (새로고침 되어도 유지되게 세션 활용)
-if "judge_id" not in st.session_state:
-    import uuid
-    st.session_state.judge_id = str(uuid.uuid4())[:8]
-
 tab1, tab2 = st.tabs(["심사위원용", "🔒 주최측 관리자"])
 
 with tab1:
-    st.info(f"심사위원님 환영합니다! (ID: {st.session_state.judge_id})")
+    st.subheader("심사위원 평가 페이지")
+    
+    # 심사위원을 사전에 지정하거나 고를 수 있게 설정
+    judge_name = st.selectbox(
+        "본인의 심사위원 성함을 선택해 주세요",
+        ["심사위원 A", "심사위원 B", "심사위원 C", "심사위원 D", "심사위원 E", "심사위원 F", "심사위원 G"]
+    )
+    
+    st.info(f"💡 현재 **{judge_name}**님으로 평가 중입니다. 새로고침하셔도 위 이름만 같으면 기존에 저장한 점수가 그대로 유지됩니다!")
+    
     presenters = ["김송금", "김수정", "동혜경", "이정규", "전재현", "조영남", "최화순"]
     
     for p in presenters:
@@ -38,13 +41,12 @@ with tab1:
             df = pd.read_csv(DATA_FILE)
             
             # 해당 심사위원의 기존 점수 찾기
-            judge_name = f"심사위원 {st.session_state.judge_id}"
             current_score = 5
             if judge_name in df["심사위원"].values:
                 val = df.loc[df["심사위원"] == judge_name, p].values[0]
                 if pd.notna(val): current_score = int(val)
 
-            score = st.radio(f"{p} 점수", list(range(11)), index=current_score, horizontal=True, key=f"radio_{p}")
+            score = st.radio(f"{p} 점수", list(range(11)), index=int(current_score), horizontal=True, key=f"radio_{judge_name}_{p}")
             
             if st.form_submit_button(f"💾 '{p}' 저장"):
                 if judge_name not in df["심사위원"].values:
@@ -52,7 +54,7 @@ with tab1:
                     df = pd.concat([df, new_row], ignore_index=True)
                 df.loc[df["심사위원"] == judge_name, p] = score
                 df.to_csv(DATA_FILE, index=False)
-                st.success(f"{p}점({score}) 저장 완료!")
+                st.success(f"[{judge_name}] {p} 발표자 점수({score}점) 저장 완료!")
 
 with tab2:
     if st.text_input("비밀번호", type="password") == ADMIN_PASSWORD:
