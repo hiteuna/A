@@ -8,7 +8,11 @@ DATA_FILE = "submissions.csv"
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["심사위원", "김송금", "김수정", "동혜경", "이정규", "전재현", "조영남", "최화순"]).to_csv(DATA_FILE, index=False)
 
-st.title("🏆 2026 남북한 사회통합사례 발표대회")
+st.set_page_config(page_title="2026 남북한 사회통합사례 발표대회", page_icon="🏆", layout="centered")
+
+# HTML/CSS를 이용해 제목 크기를 화면에 딱 맞게 한 줄로 조절
+st.markdown("<h2 style='text-align: center;'>🏆 2026 남북한 사회통합사례 발표대회</h2>", unsafe_allow_html=True)
+st.write("")
 
 tab1, tab2 = st.tabs(["심사위원용", "주최측 관리자용"])
 
@@ -20,13 +24,12 @@ with tab1:
         st.write("각 발표자의 점수를 선택해 주세요 (0 ~ 10점)")
         current_agent_scores = {}
         
-        # [수정된 부분] 0부터 10까지의 점수를 가로 버튼(radio)으로 분리하여 배치
         for p in presenters:
             current_agent_scores[p] = st.radio(
                 f"발표자: {p}",
-                options=list(range(11)), # 0부터 10까지
-                index=5, # 기본 선택값 5점
-                horizontal=True # 가로로 배치하여 스마트폰에서 보기 편하게 설정
+                options=list(range(11)),
+                index=5,
+                horizontal=True
             )
         
         if st.form_submit_button("📤 최종 점수 제출하기"):
