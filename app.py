@@ -7,7 +7,6 @@ ADMIN_PASSWORD = "123"
 
 st.set_page_config(page_title="2026 발표대회 합격/불합격 심사", layout="centered")
 
-# 버튼 스타일 강조 및 크기 조절
 st.markdown("""
     <style>
     h3 { font-size: 1.3rem !important; text-align: center; }
@@ -33,12 +32,16 @@ with tab1:
         st.warning("⚠️ 개인 심사 링크로 접속하지 않으셨습니다.\n심사위원분들은 문자로 받으신 전용 링크로 다시 접속해 주세요.")
     else:
         current_judge = f"심사위원 {judge_num}번"
-        st.info(f"💡 안녕하세요! **{current_judge}**님용 평가 페이지입니다.\n발표자별로 **[ O (합격)]** 또는 **[ X (불합격)]** 버튼을 누르시면즉시 저장됩니다!")
+        st.info(f"💡 안녕하세요! **{current_judge}**님용 평가 페이지입니다.\n발표자별로 **[ O (합격)]** 또는 **[ X (불합격)]** 버튼을 누르시면 즉시 저장됩니다!")
         
         presenters = ["김송금", "김수정", "동혜경", "이정규", "전재현", "조영남", "최화순"]
         
+        # 파일이 없으면 문자열을 담을 수 있는 데이터프레임으로 초기 생성
         if not os.path.exists(DATA_FILE):
-            pd.DataFrame(columns=["심사위원"] + presenters).to_csv(DATA_FILE, index=False)
+            init_dict = {"심사위원": []}
+            for p in presenters:
+                init_dict[p] = []
+            pd.DataFrame(init_dict).to_csv(DATA_FILE, index=False)
         
         df = pd.read_csv(DATA_FILE)
         
@@ -50,7 +53,7 @@ with tab1:
             if current_judge in df["심사위원"].values:
                 val = df.loc[df["심사위원"] == current_judge, p].values[0]
                 if pd.notna(val): 
-                    current_val = val
+                    current_val = str(val)
             
             if current_val:
                 label_text = "합격(O)" if current_val == "O" else "불합격(X)"
@@ -63,8 +66,13 @@ with tab1:
             with col1:
                 if st.button(f"⭕ O (합격)", key=f"btn_O_{p}"):
                     if current_judge not in df["심사위원"].values:
-                        new_row = pd.DataFrame([{"심사위원": current_judge}])
-                        df = pd.concat([df, new_row], ignore_index=True)
+                        new_row_data = {"심사위원": current_judge}
+                        for pres in presenters:
+                            new_row_data[pres] = ""
+                        df = pd.concat([df, pd.DataFrame([new_row_data])], ignore_index=True)
+                    
+                    # 해당 칸의 타입을 문자열로 강제 변환 후 저장
+                    df[p] = df[p].astype(str)
                     df.loc[df["심사위원"] == current_judge, p] = "O"
                     df.to_csv(DATA_FILE, index=False)
                     st.success(f"'{p}' -> 합격(O) 저장 완료!")
@@ -73,8 +81,13 @@ with tab1:
             with col2:
                 if st.button(f"❌ X (불합격)", key=f"btn_X_{p}"):
                     if current_judge not in df["심사위원"].values:
-                        new_row = pd.DataFrame([{"심사위원": current_judge}])
-                        df = pd.concat([df, new_row], ignore_index=True)
+                        new_row_data = {"심사위원": current_judge}
+                        for pres in presenters:
+                            new_row_data[pres] = ""
+                        df = pd.concat([df, pd.DataFrame([new_row_data])], ignore_index=True)
+                    
+                    # 해당 칸의 타입을 문자열로 강제 변환 후 저장
+                    df[p] = df[p].astype(str)
                     df.loc[df["심사위원"] == current_judge, p] = "X"
                     df.to_csv(DATA_FILE, index=False)
                     st.error(f"'{p}' -> 불합격(X) 저장 완료!")
