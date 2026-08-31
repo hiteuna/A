@@ -32,18 +32,23 @@ with tab1:
         st.warning("⚠️ 개인 심사 링크로 접속하지 않으셨습니다.\n심사위원분들은 문자로 받으신 전용 링크로 다시 접속해 주세요.")
     else:
         current_judge = f"심사위원 {judge_num}번"
-        st.info(f"💡 안녕하세요! **{current_judge}**님용 평가 페이지입니다.\n발표자별로 **[ O (합격)]** 또는 **[ X (불합격)]** 버튼을 누르시면 즉시 저장됩니다!")
+        st.info(f"💡 안녕하세요! **{current_judge}**님용 평가 페이지입니다.\n- 발표자별로 **[ O (합격)]** 또는 **[ X (불합격)]**을 누르면 즉시 저장됩니다.\n- 모든 심사가 끝난 후 **[최종 심사 제출완료]** 버튼을 꼭 눌러주세요!")
         
-        presenters = ["김송금", "김수정", "동혜경", "이정규", "전재현", "조영남", "최화순"]
+        # 요청하신 순서로 발표자 리스트 변경
+        presenters = ["김수정", "김송금", "동혜경", "조영남", "이정규", "최화순", "전재현"]
         
         if not os.path.exists(DATA_FILE):
-            init_dict = {"심사위원": []}
+            init_dict = {"심사위원": [], "제출상태": []}
             for p in presenters:
                 init_dict[p] = []
             pd.DataFrame(init_dict).to_csv(DATA_FILE, index=False)
         
         df = pd.read_csv(DATA_FILE)
         
+        # 제출상태 컬럼이 없으면 추가
+        if "제출상태" not in df.columns:
+            df["제출상태"] = ""
+            
         for p in presenters:
             st.markdown(f"---")
             st.subheader(f"📌 발표자: {p}")
@@ -65,7 +70,7 @@ with tab1:
             with col1:
                 if st.button(f"⭕ O (합격)", key=f"btn_O_{p}"):
                     if current_judge not in df["심사위원"].values:
-                        new_row_data = {"심사위원": current_judge}
+                        new_row_data = {"심사위원": current_judge, "제출상태": ""}
                         for pres in presenters:
                             new_row_data[pres] = ""
                         df = pd.concat([df, pd.DataFrame([new_row_data])], ignore_index=True)
@@ -79,7 +84,7 @@ with tab1:
             with col2:
                 if st.button(f"❌ X (불합격)", key=f"btn_X_{p}"):
                     if current_judge not in df["심사위원"].values:
-                        new_row_data = {"심사위원": current_judge}
+                        new_row_data = {"심사위원": current_judge, "제출상태": ""}
                         for pres in presenters:
                             new_row_data[pres] = ""
                         df = pd.concat([df, pd.DataFrame([new_row_data])], ignore_index=True)
@@ -89,6 +94,37 @@ with tab1:
                     df.to_csv(DATA_FILE, index=False)
                     st.error(f"'{p}' -> 불합격(X) 저장 완료!")
                     st.rerun()
+
+        # 하단 최종 제출 완료 버튼 영역
+        st.markdown("---")
+        st.markdown("### ✅ 모든 심사 완료 후 아래 버튼을 눌러주세요!")
+        
+        # 현재 제출 상태 확인
+        is_submitted = False
+        if current_judge in df["심사위원"].values:
+            status_val = df.loc[df["심사위원"] == current_judge, "제출상태"].values[0]
+            if pd.notna(status_val) and status_val == "완료":
+                is_submitted = True
+
+        if is_submitted:
+            st.success("🎉 **[제출완료]** 처리가 정상적으로 완료되었습니다! 수고하셨습니다.")
+            if st.button("🔄 수정하기 (다시 평가하기)", key="btn_cancel_submit"):
+                df.loc[df["심사위원"] == current_judge, "제출상태"] = ""
+                df.to_csv(DATA_FILE, index=False)
+                st.rerun()
+        else:
+            if st.button("🚀 최종 심사 제출완료", key="btn_final_submit"):
+                if current_judge not in df["심사위원"].values:
+                    new_row_data = {"심사위원": current_judge, "제출상태": "완료"}
+                    for pres in presenters:
+                        new_row_data[pres] = ""
+                    df = pd.concat([df, pd.DataFrame([new_row_data])], ignore_index=True)
+                else:
+                    df.loc[df["심사위원"] == current_judge, "제출상태"] = "완료"
+                df.to_csv(DATA_FILE, index=False)
+                st.balloons()
+                st.success("🎉 모든 심사가 최종 제출되었습니다. 감사합니다!")
+                st.rerun()
 
 with tab2:
     password = st.text_input("관리자 비밀번호", type="password")
@@ -101,11 +137,13 @@ with tab2:
         if os.path.exists(DATA_FILE):
             df = pd.read_csv(DATA_FILE)
             if not df.empty:
-                st.write("### 📋 심사위원별 상세 현황", df)
+                st.write("### 📋 심사위원별 상세 현황 및 제출 상태", df)
                 
-                numeric_df = df.drop(columns=["심사위원"])
-                o_counts = (numeric_df == "O").sum()
-                x_counts = (numeric_df == "X").sum()
+                # 집계 시 심사위원과 제출상태 컬럼 제외
+                score_df = df.drop(columns=[col for col in ["심사위원", "제출상태"] if col in df.columns])
+                
+                o_counts = (score_df == "O").sum()
+                x_counts = (score_df == "X").sum()
                 total_votes = o_counts + x_counts
                 
                 result_df = pd.DataFrame({
