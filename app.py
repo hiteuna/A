@@ -34,9 +34,9 @@ with tab1:
         current_judge = f"심사위원 {judge_num}번"
         st.info(f"💡 안녕하세요! **{current_judge}**님용 평가 페이지입니다.\n- 발표자별로 **[ O (합격)]** 또는 **[ X (불합격)]**을 누르면 즉시 저장됩니다.\n- 모든 심사가 끝난 후 **[최종 심사 제출완료]** 버튼을 꼭 눌러주세요!")
         
-        # 요청하신 순서로 발표자 리스트 변경
         presenters = ["김수정", "김송금", "동혜경", "조영남", "이정규", "최화순", "전재현"]
         
+        # 파일이 없거나 형식이 안 맞을 경우 대비한 초기화
         if not os.path.exists(DATA_FILE):
             init_dict = {"심사위원": [], "제출상태": []}
             for p in presenters:
@@ -45,9 +45,14 @@ with tab1:
         
         df = pd.read_csv(DATA_FILE)
         
-        # 제출상태 컬럼이 없으면 추가
+        # "제출상태" 컬럼이 아예 없거나 타입 문제 방지를 위해 문자열로 강제 변환
         if "제출상태" not in df.columns:
             df["제출상태"] = ""
+        df["제출상태"] = df["제출상태"].astype(str)
+        for p in presenters:
+            if p not in df.columns:
+                df[p] = ""
+            df[p] = df[p].astype(str)
             
         for p in presenters:
             st.markdown(f"---")
@@ -59,7 +64,7 @@ with tab1:
                 if pd.notna(val): 
                     current_val = str(val)
             
-            if current_val:
+            if current_val in ["O", "X"]:
                 label_text = "합격(O)" if current_val == "O" else "불합격(X)"
                 st.caption(f"현재 선택된 평가: **[{label_text}]**")
             else:
@@ -75,7 +80,6 @@ with tab1:
                             new_row_data[pres] = ""
                         df = pd.concat([df, pd.DataFrame([new_row_data])], ignore_index=True)
                     
-                    df[p] = df[p].astype(str)
                     df.loc[df["심사위원"] == current_judge, p] = "O"
                     df.to_csv(DATA_FILE, index=False)
                     st.success(f"'{p}' -> 합격(O) 저장 완료!")
@@ -89,7 +93,6 @@ with tab1:
                             new_row_data[pres] = ""
                         df = pd.concat([df, pd.DataFrame([new_row_data])], ignore_index=True)
                     
-                    df[p] = df[p].astype(str)
                     df.loc[df["심사위원"] == current_judge, p] = "X"
                     df.to_csv(DATA_FILE, index=False)
                     st.error(f"'{p}' -> 불합격(X) 저장 완료!")
@@ -99,7 +102,6 @@ with tab1:
         st.markdown("---")
         st.markdown("### ✅ 모든 심사 완료 후 아래 버튼을 눌러주세요!")
         
-        # 현재 제출 상태 확인
         is_submitted = False
         if current_judge in df["심사위원"].values:
             status_val = df.loc[df["심사위원"] == current_judge, "제출상태"].values[0]
@@ -139,7 +141,6 @@ with tab2:
             if not df.empty:
                 st.write("### 📋 심사위원별 상세 현황 및 제출 상태", df)
                 
-                # 집계 시 심사위원과 제출상태 컬럼 제외
                 score_df = df.drop(columns=[col for col in ["심사위원", "제출상태"] if col in df.columns])
                 
                 o_counts = (score_df == "O").sum()
