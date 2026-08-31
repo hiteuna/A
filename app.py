@@ -1,145 +1,124 @@
+import pandas as pd
+import streamlit as st
 import os
-import json
-import requests
-import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
-from flask import Flask, jsonify, request, send_from_directory
 
-app = Flask(__name__, static_folder='.')
+DATA_FILE = "submissions.csv"
+ADMIN_PASSWORD = "123"
 
-SERVICE_KEY = "ETKBOKF9xHFHhXsGyF%2BgHEn5Rwh9SnHb5Eb7TYSCRQR7c8umeNTz9W8LP0U1IMXM6EwNPs3G51s8ruEGTRzigw%3D%3D"
-DATA_FILE = "bid_records.json"
+st.set_page_config(page_title="2026 발표대회 합격/불합격 심사", layout="centered")
 
-def load_data():
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            return []
-    return []
+st.markdown("""
+    <style>
+    h3 { font-size: 1.3rem !important; text-align: center; }
+    div.stButton > button {
+        width: 100%;
+        font-size: 1.2rem !important;
+        font-weight: bold;
+        padding: 0.5rem;
+        border-radius: 8px;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-def save_data(data):
-    with open(DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+st.markdown("### 🏆 2026 남북한 사회통합사례 발표대회 (합격/불합격 심사)")
 
-@app.route('/')
-def index():
-    return send_from_directory('.', 'index.html')
+query_params = st.query_params
+judge_num = query_params.get("judge", None)
 
-@app.route('/api/data', methods=['GET'])
-def get_data():
-    records = load_data()
-    return jsonify({"ok": True, "records": records})
+tab1, tab2 = st.tabs(["심사위원용", "🔒 주최측 관리자"])
 
-@app.route('/api/fetch', methods=['POST'])
-def fetch_g2b():
-    req = request.get_json() or {}
-    days = int(req.get('days', 30))
-    if days > 30: days = 30
-    
-    end_date = datetime.now().strftime("%Y%m%d2359")
-    start_date = (datetime.now() - timedelta(days=days)).strftime("%Y%m%d0000")
-    
-    all_parsed = []
-    
-    for page in range(1, 6):
-        url = (
-            f"https://apis.data.go.kr/1230000/ad/BidPublicInfoService/getBidPblancListInfoServc"
-            f"?serviceKey={SERVICE_KEY}"
-            f"&numOfRows=100"
-            f"&pageNo={page}"
-            f"&inqryDiv=1"
-            f"&inqryBgnDt={start_date}"
-            f"&inqryEndDt={end_date}"
-            f"&type=json"
-        )
+with tab1:
+    if not judge_num:
+        st.warning("⚠️ 개인 심사 링크로 접속하지 않으셨습니다.\n심사위원분들은 문자로 받으신 전용 링크로 다시 접속해 주세요.")
+    else:
+        current_judge = f"심사위원 {judge_num}번"
+        st.info(f"💡 안녕하세요! **{current_judge}**님용 평가 페이지입니다.\n발표자별로 **[ O (합격)]** 또는 **[ X (불합격)]** 버튼을 누르시면 즉시 저장됩니다!")
         
-        try:
-            res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
-            if res.status_code != 200:
-                break
-                
-            items = []
-            try:
-                res_json = res.json()
-                body = res_json.get('response', {}).get('body', {})
-                items_raw = body.get('items', [])
-                if isinstance(items_raw, dict) and 'item' in items_raw:
-                    items_raw = items_raw['item']
-                items = items_raw if isinstance(items_raw, list) else ([items_raw] if isinstance(items_raw, dict) else [])
-            except:
-                root = ET.fromstring(res.text)
-                items = root.findall('.//item')
-                
-            if not items:
-                break
-                
-            for it in items:
-                if isinstance(it, dict):
-                    title = it.get('bidNtceNm', '')
-                    org = it.get('ntceInsttNm') or '기관 미확인'
-                    demand = it.get('dminsttNm', '')
-                    bid_no = it.get('bidNtceNo', '')
-                    bid_ord = str(it.get('bidNtceOrd', '00')).zfill(2)
-                    notice_dt = it.get('bidNtceDt', '')
-                    deadline = it.get('bidClseDt', '')
-                    amt_raw = it.get('bdgtAmt') or it.get('presmptPrce') or 0
-                    method = it.get('cntrctCnclsMthdNm', '')
-                    api_url = it.get('bidNtceDtlUrl', '')
-                else:
-                    title = item.findtext('bidNtceNm', '')
-                    org = item.findtext('ntceInsttNm', '') or '기관 미확인'
-                    demand = item.findtext('dminsttNm', '')
-                    bid_no = item.findtext('bidNtceNo', '')
-                    bid_ord = str(item.findtext('bidNtceOrd', '00')).zfill(2)
-                    notice_dt = item.findtext('bidNtceDt', '')
-                    deadline = item.findtext('bidClseDt', '')
-                    amt_raw = item.findtext('bdgtAmt') or item.findtext('presmptPrce') or '0'
-                    method = item.findtext('cntrctCnclsMthdNm', '')
-                    api_url = item.findtext('bidNtceDtlUrl', '')
+        presenters = ["김송금", "김수정", "동혜경", "이정규", "전재현", "조영남", "최화순"]
+        
+        if not os.path.exists(DATA_FILE):
+            init_dict = {"심사위원": []}
+            for p in presenters:
+                init_dict[p] = []
+            pd.DataFrame(init_dict).to_csv(DATA_FILE, index=False)
+        
+        df = pd.read_csv(DATA_FILE)
+        
+        for p in presenters:
+            st.markdown(f"---")
+            st.subheader(f"📌 발표자: {p}")
+            
+            current_val = ""
+            if current_judge in df["심사위원"].values:
+                val = df.loc[df["심사위원"] == current_judge, p].values[0]
+                if pd.notna(val): 
+                    current_val = str(val)
+            
+            if current_val:
+                label_text = "합격(O)" if current_val == "O" else "불합격(X)"
+                st.caption(f"현재 선택된 평가: **[{label_text}]**")
+            else:
+                st.caption("현재 미선택 상태")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button(f"⭕ O (합격)", key=f"btn_O_{p}"):
+                    if current_judge not in df["심사위원"].values:
+                        new_row_data = {"심사위원": current_judge}
+                        for pres in presenters:
+                            new_row_data[pres] = ""
+                        df = pd.concat([df, pd.DataFrame([new_row_data])], ignore_index=True)
+                    
+                    df[p] = df[p].astype(str)
+                    df.loc[df["심사위원"] == current_judge, p] = "O"
+                    df.to_csv(DATA_FILE, index=False)
+                    st.success(f"'{p}' -> 합격(O) 저장 완료!")
+                    st.rerun()
+                    
+            with col2:
+                if st.button(f"❌ X (불합격)", key=f"btn_X_{p}"):
+                    if current_judge not in df["심사위원"].values:
+                        new_row_data = {"심사위원": current_judge}
+                        for pres in presenters:
+                            new_row_data[pres] = ""
+                        df = pd.concat([df, pd.DataFrame([new_row_data])], ignore_index=True)
+                    
+                    df[p] = df[p].astype(str)
+                    df.loc[df["심사위원"] == current_judge, p] = "X"
+                    df.to_csv(DATA_FILE, index=False)
+                    st.error(f"'{p}' -> 불합격(X) 저장 완료!")
+                    st.rerun()
 
-                try: amt = int(float(amt_raw or 0))
-                except: amt = 0
+with tab2:
+    password = st.text_input("관리자 비밀번호", type="password")
+    if password == ADMIN_PASSWORD:
+        if st.button("🔄 데이터 초기화"):
+            if os.path.exists(DATA_FILE): os.remove(DATA_FILE)
+            st.success("데이터가 초기화되었습니다.")
+            st.rerun()
+            
+        if os.path.exists(DATA_FILE):
+            df = pd.read_csv(DATA_FILE)
+            if not df.empty:
+                st.write("### 📋 심사위원별 상세 현황", df)
                 
-                # 나라장터 직링 주소 생성 (공고번호 + 차수 기반)
-                if bid_no:
-                    direct_url = f"https://www.g2b.go.kr:8081/ep/invitation/publish/bidInfoDtl.do?bidno={bid_no}&bidseq={bid_ord}"
-                else:
-                    direct_url = api_url or '#'
-
-                full_text = f"{org} {demand} {title}"
-                region = "OTHER"
-                if any(k in full_text for k in ["서울", "강남", "종로", "마포", "영등포", "송파", "서초", "동작", "중구"]): region = "SEOUL"
-                elif any(k in full_text for k in ["경기", "수원", "성남", "용인", "고양", "화성", "부천", "안양"]): region = "GYEONGGI"
-                elif any(k in full_text for k in ["인천", "송도", "부평"]): region = "INCHEON"
+                numeric_df = df.drop(columns=["심사위원"])
+                o_counts = (numeric_df == "O").sum()
+                x_counts = (numeric_df == "X").sum()
+                total_votes = o_counts + x_counts
                 
-                all_parsed.append({
-                    "bidNo": f"{bid_no}-{bid_ord}" if bid_no else '',
-                    "pureBidNo": bid_no,
-                    "title": title,
-                    "noticeDate": notice_dt,
-                    "deadline": deadline,
-                    "org": org,
-                    "demandAgency": demand,
-                    "amount": amt,
-                    "contractMethod": method,
-                    "region": region,
-                    "url": direct_url
+                result_df = pd.DataFrame({
+                    "합격(O) 개수": o_counts,
+                    "불합격(X) 개수": x_counts,
+                    "총 투표수": total_votes
                 })
-        except Exception as e:
-            print(f"[오류] {str(e)}")
-            break
-
-    unique_bids = list({x['bidNo']: x for x in all_parsed if x['bidNo']}.values())
-    save_data(unique_bids)
-    
-    return jsonify({
-        "ok": True, 
-        "message": f"나라장터 공고 총 {len(unique_bids)}건 수집 완료!", 
-        "count": len(unique_bids)
-    })
-
-if __name__ == '__main__':
-    print("Server running on http://127.0.0.1:5000")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+                result_df["순위"] = result_df["합격(O) 개수"].rank(ascending=False, method="min").astype(int)
+                
+                st.write("### 📊 발표자별 집계 결과", result_df.sort_values(by="합격(O) 개수", ascending=False))
+            else:
+                st.info("아직 제출된 심사 결과가 없습니다.")
+        else:
+            st.info("아직 제출된 심사 결과가 없습니다.")
+    else:
+        st.warning("관리자 비밀번호를 입력해 주세요.")
