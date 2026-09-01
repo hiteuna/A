@@ -5,7 +5,7 @@ import os
 DATA_FILE = "submissions.csv"
 ADMIN_PASSWORD = "123"
 
-st.set_page_config(page_title="2026 발표대회 합격/불합격 심사", layout="centered")
+st.set_page_config(page_title="2026 발표대회 공감/비공감 심사", layout="centered")
 
 st.markdown("""
     <style>
@@ -20,7 +20,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown("### 🏆 2026 남북한 사회통합사례 발표대회 (합격/불합격 심사)")
+st.markdown("### 🏆 2026 남북한 사회통합사례 발표대회 (공감/비공감 심사)")
 
 query_params = st.query_params
 judge_num = query_params.get("judge", None)
@@ -32,11 +32,10 @@ with tab1:
         st.warning("⚠️ 개인 심사 링크로 접속하지 않으셨습니다.\n심사위원분들은 문자로 받으신 전용 링크로 다시 접속해 주세요.")
     else:
         current_judge = f"심사위원 {judge_num}번"
-        st.info(f"💡 안녕하세요! **{current_judge}**님용 평가 페이지입니다.\n- 발표자별로 **[ O (합격)]** 또는 **[ X (불합격)]**을 누르면 즉시 저장됩니다.\n- 모든 심사가 끝난 후 **[최종 심사 제출완료]** 버튼을 꼭 눌러주세요!")
+        st.info(f"💡 안녕하세요! **{current_judge}**님용 평가 페이지입니다.\n- 발표자별로 **[ O (공감)]** 또는 **[ X (비공감)]**을 누르면 즉시 저장됩니다.\n- 모든 심사가 끝난 후 **[최종 심사 제출완료]** 버튼을 꼭 눌러주세요!")
         
         presenters = ["김수정", "김송금", "동혜경", "조영남", "이정규", "최화순", "전재현"]
         
-        # 파일이 없거나 형식이 안 맞을 경우 대비한 초기화
         if not os.path.exists(DATA_FILE):
             init_dict = {"심사위원": [], "제출상태": []}
             for p in presenters:
@@ -45,7 +44,6 @@ with tab1:
         
         df = pd.read_csv(DATA_FILE)
         
-        # "제출상태" 컬럼이 아예 없거나 타입 문제 방지를 위해 문자열로 강제 변환
         if "제출상태" not in df.columns:
             df["제출상태"] = ""
         df["제출상태"] = df["제출상태"].astype(str)
@@ -65,7 +63,7 @@ with tab1:
                     current_val = str(val)
             
             if current_val in ["O", "X"]:
-                label_text = "합격(O)" if current_val == "O" else "불합격(X)"
+                label_text = "공감(O)" if current_val == "O" else "비공감(X)"
                 st.caption(f"현재 선택된 평가: **[{label_text}]**")
             else:
                 st.caption("현재 미선택 상태")
@@ -73,7 +71,7 @@ with tab1:
             col1, col2 = st.columns(2)
             
             with col1:
-                if st.button(f"⭕ O (합격)", key=f"btn_O_{p}"):
+                if st.button(f"⭕ O (공감)", key=f"btn_O_{p}"):
                     if current_judge not in df["심사위원"].values:
                         new_row_data = {"심사위원": current_judge, "제출상태": ""}
                         for pres in presenters:
@@ -82,11 +80,11 @@ with tab1:
                     
                     df.loc[df["심사위원"] == current_judge, p] = "O"
                     df.to_csv(DATA_FILE, index=False)
-                    st.success(f"'{p}' -> 합격(O) 저장 완료!")
+                    st.success(f"'{p}' -> 공감(O) 저장 완료!")
                     st.rerun()
                     
             with col2:
-                if st.button(f"❌ X (불합격)", key=f"btn_X_{p}"):
+                if st.button(f"❌ X (비공감)", key=f"btn_X_{p}"):
                     if current_judge not in df["심사위원"].values:
                         new_row_data = {"심사위원": current_judge, "제출상태": ""}
                         for pres in presenters:
@@ -95,10 +93,9 @@ with tab1:
                     
                     df.loc[df["심사위원"] == current_judge, p] = "X"
                     df.to_csv(DATA_FILE, index=False)
-                    st.error(f"'{p}' -> 불합격(X) 저장 완료!")
+                    st.error(f"'{p}' -> 비공감(X) 저장 완료!")
                     st.rerun()
 
-        # 하단 최종 제출 완료 버튼 영역
         st.markdown("---")
         st.markdown("### ✅ 모든 심사 완료 후 아래 버튼을 눌러주세요!")
         
@@ -148,13 +145,13 @@ with tab2:
                 total_votes = o_counts + x_counts
                 
                 result_df = pd.DataFrame({
-                    "합격(O) 개수": o_counts,
-                    "불합격(X) 개수": x_counts,
+                    "공감(O) 개수": o_counts,
+                    "비공감(X) 개수": x_counts,
                     "총 투표수": total_votes
                 })
-                result_df["순위"] = result_df["합격(O) 개수"].rank(ascending=False, method="min").astype(int)
+                result_df["순위"] = result_df["공감(O) 개수"].rank(ascending=False, method="min").astype(int)
                 
-                st.write("### 📊 발표자별 집계 결과", result_df.sort_values(by="합격(O) 개수", ascending=False))
+                st.write("### 📊 발표자별 집계 결과", result_df.sort_values(by="공감(O) 개수", ascending=False))
             else:
                 st.info("아직 제출된 심사 결과가 없습니다.")
         else:
